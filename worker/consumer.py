@@ -1,6 +1,16 @@
 import pika
 import json
-import os
+import time
+
+def connect_to_rabbitmq(retries=5, delay=3):
+    for i in range(retries):
+        try:
+            connection = pika.BlockingConnection(pika.ConnectionParameters(host="rabbitmq"))
+            return connection
+        except pika.exceptions.AMQPConnectionError:
+            print(f"[Intento {i+1}] RabbitMQ no disponible, reintentando en {delay} segundos...")
+            time.sleep(delay)
+    raise Exception("No se pudo conectar a RabbitMQ después de varios intentos")
 
 def callback(ch, method, properties, body):
     message = json.loads(body)
@@ -9,7 +19,7 @@ def callback(ch, method, properties, body):
     print("Mensaje guardado:", message)
 
 def main():
-    connection = pika.BlockingConnection(pika.ConnectionParameters(host="rabbitmq"))
+    connection = connect_to_rabbitmq()
     channel = connection.channel()
     channel.queue_declare(queue="messages", durable=True)
     channel.basic_consume(queue="messages", on_message_callback=callback, auto_ack=True)
